@@ -22,9 +22,15 @@ Al crear o mover una división, se deberán visualizar y actualizar en vivo las 
 
 ## Usabilidad
 
-- Al iniciar, se debe solicitar el nombre del mueble y sus dimensiones exteriores (ancho y alto).
+- Al iniciar, se debe mostrar una página inicial de proyectos.
+- Desde la página inicial se debe poder crear un nuevo proyecto, solicitando el nombre del mueble y sus dimensiones exteriores (ancho y alto).
+- Desde la página inicial se debe poder cargar un proyecto desde un archivo JSON válido.
+- La página inicial debe listar los proyectos guardados en el navegador. Para cada proyecto se debe poder abrirlo, eliminarlo, renombrarlo y exportarlo como JSON.
 - Debe existir un panel lateral izquierdo, visualmente mínimo y contraíble, que contenga las herramientas y acciones del editor.
 - El panel lateral debe ser lo más compacto posible para evitar scroll durante el uso de drag & drop. Las herramientas y acciones en formato botón deben disponerse de a dos por fila.
+- El logotipo del panel lateral debe llevar a la página inicial de proyectos.
+- No debe existir un bloque lateral independiente de acciones del proyecto.
+- El guardado del proyecto actual debe estar disponible como un botón con icono de disquete, ubicado junto al nombre del proyecto en el encabezado del editor.
 - La interfaz debe estar íntegramente en español y utilizar componentes con estilo shadcn. La paleta es libre.
 - El área del editor debe maximizar la visibilidad del mueble.
 - El mueble debe ubicarse lo más cerca posible del borde superior del área de dibujo, respetando un pequeño margen para las cotas exteriores.
@@ -51,6 +57,7 @@ Al crear o mover una división, se deberán visualizar y actualizar en vivo las 
 - Debe ser posible guardar en el navegador múltiples diseños de muebles, identificados por nombre.
 - Debe existir una acción para cargar y continuar editando cualquiera de los diseños guardados en el navegador.
 - Debe existir una acción **Exportar** que descargue un archivo JSON con la definición completa del mueble y sus divisiones.
+- La exportación JSON debe ser compatible con la opción de carga de proyecto desde JSON.
 - No se requiere exportación PNG.
 
 ## Alcance

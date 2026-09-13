@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+const disk = new URL('../styles/disk.png', import.meta.url).toString();
+
 type Orientation = 'vertical' | 'horizontal';
 type Rect = { x: number; y: number; w: number; h: number };
 type Leaf = { type: 'leaf' };
@@ -116,16 +118,23 @@ function readSaved(): Record<string, Design> {
 
 function Modal({ children }: { children: React.ReactNode }) { return <div className="modal-backdrop"><section className="modal-card">{children}</section></div>; }
 
+function isDesign(value: unknown): value is Design {
+  if (!value || typeof value !== 'object') return false;
+  const item = value as Partial<Design>;
+  return typeof item.name === 'string' && typeof item.width === 'number' && typeof item.height === 'number' && !!item.root && typeof item.root === 'object';
+}
+
 export default function FurnitureEditor() {
   const [design, setDesign] = useState<Design | null>(null);
+  const [screen, setScreen] = useState<'home' | 'editor'>('home');
   const [showDimensions, setShowDimensions] = useState(true);
   const [collapsed, setCollapsed] = useState(false);
   const [tool, setTool] = useState<Orientation | 'erase' | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
-  const [showCreate, setShowCreate] = useState(true);
-  const [showLoad, setShowLoad] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
   const [saved, setSaved] = useState<Record<string, Design>>({});
+  const [importError, setImportError] = useState('');
   const [dragging, setDragging] = useState<string | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -140,7 +149,7 @@ export default function FurnitureEditor() {
     const height = Number(data.get('height'));
     if (!name || !Number.isFinite(width) || !Number.isFinite(height) || width <= THICKNESS * 2 || height <= THICKNESS * 2) return;
     setDesign({ version: 1, id: id(), name, width, height, root: leaf });
-    setShowCreate(false); setSelected(null); setZoom(1);
+    setShowCreate(false); setSelected(null); setZoom(1); setScreen('editor');
   }
 
   function svgPoint(event: React.PointerEvent | React.DragEvent) {
@@ -168,23 +177,73 @@ export default function FurnitureEditor() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); setSaved(next);
   }
 
-  function exportJson() {
-    if (!design) return;
-    const blob = new Blob([JSON.stringify(design, null, 2)], { type: 'application/json' });
+  function exportJson(item = design) {
+    if (!item) return;
+    const blob = new Blob([JSON.stringify(item, null, 2)], { type: 'application/json' });
     const link = document.createElement('a'); link.href = URL.createObjectURL(blob);
-    link.download = `${design.name.toLowerCase().replace(/[^a-z0-9]+/gi, '-') || 'mueble'}.json`;
+    link.download = `${item.name.toLowerCase().replace(/[^a-z0-9]+/gi, '-') || 'mueble'}.json`;
     link.click(); URL.revokeObjectURL(link.href);
+  }
+
+  function openProject(item: Design) {
+    setDesign(item); setScreen('editor'); setSelected(null); setZoom(1); setTool(null);
+  }
+
+  async function importProject(file?: File) {
+    if (!file) return;
+    try {
+      const parsed: unknown = JSON.parse(await file.text());
+      if (!isDesign(parsed) || parsed.width <= THICKNESS * 2 || parsed.height <= THICKNESS * 2) throw new Error();
+      openProject({ ...parsed, version: 1, id: typeof parsed.id === 'string' ? parsed.id : id() });
+      setImportError('');
+    } catch { setImportError('El archivo no contiene un proyecto válido.'); }
+  }
+
+  function deleteProject(projectId: string) {
+    const item = saved[projectId];
+    if (!item || !window.confirm(`¿Eliminar “${item.name}”?`)) return;
+    const next = { ...saved }; delete next[projectId];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); setSaved(next);
+  }
+
+  function renameProject(projectId: string) {
+    const item = saved[projectId];
+    if (!item) return;
+    const name = window.prompt('Nuevo nombre del mueble:', item.name)?.trim();
+    if (!name) return;
+    const next = { ...saved, [projectId]: { ...item, name } };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); setSaved(next);
+    if (design?.id === projectId) setDesign(next[projectId]);
   }
 
   // El zoom se ancla al margen superior: alejar la vista no desplaza el mueble hacia abajo.
   const pad = 10;
   const viewBox = design ? `${design.width / 2 - (design.width + pad * 2) / (2 * zoom)} ${-pad} ${(design.width + pad * 2) / zoom} ${(design.height + pad * 2) / zoom}` : '0 0 100 70';
 
+  if (screen === 'home') return <main className="project-home">
+    <header className="home-header"><div className="brand"><span className="brand-mark">▦</span><div><strong>editor</strong><small>de muebles</small></div></div></header>
+    <section className="home-content">
+      <div className="home-intro"><p className="eyebrow">Tus diseños</p><h1>Proyectos de muebles</h1><p>Creá un diseño nuevo, importá una definición JSON o continuá trabajando sobre uno guardado.</p></div>
+      <div className="home-actions">
+        <button className="home-primary" onClick={() => setShowCreate(true)}><span>＋</span> Nuevo proyecto</button>
+        <label className="home-secondary"><span>↑</span> Cargar desde JSON<input type="file" accept="application/json,.json" onChange={(event) => { void importProject(event.target.files?.[0]); event.currentTarget.value = ''; }} /></label>
+      </div>
+      {importError && <p className="import-error">{importError}</p>}
+      <section className="projects-section"><div className="projects-heading"><h2>Guardados en este navegador</h2><span>{Object.keys(saved).length}</span></div>
+        {Object.values(saved).length ? <div className="project-list">{Object.values(saved).map((item) => <article className="project-card" key={item.id}>
+          <div><h3>{item.name}</h3></div>
+          <div className="project-card-actions"><button className="open-project" onClick={() => openProject(item)}>Abrir</button><button onClick={() => renameProject(item.id)}>Renombrar</button><button onClick={() => exportJson(item)}>JSON</button><button className="delete-project" onClick={() => deleteProject(item.id)}>Eliminar</button></div>
+        </article>)}</div> : <div className="empty-projects"><span>▦</span><p>No hay proyectos guardados todavía.</p><small>Al guardar un mueble, aparecerá en esta lista.</small></div>}
+      </section>
+    </section>
+    {showCreate && <Modal><div className="modal-heading"><span className="brand-mark">▦</span><div><p>Nuevo proyecto</p><h2>Crear un mueble</h2></div></div><form onSubmit={(e) => { e.preventDefault(); create(e.currentTarget); }}><label>Nombre del mueble<input name="name" required placeholder="Ej. Biblioteca living" /></label><div className="form-grid"><label>Ancho exterior (cm)<input name="width" required type="number" min="4" step="0.1" placeholder="120" /></label><label>Alto exterior (cm)<input name="height" required type="number" min="4" step="0.1" placeholder="180" /></label></div><p className="form-note">Todas las piezas tienen un espesor de 1,8 cm.</p><div className="modal-actions"><button type="button" className="secondary" onClick={() => setShowCreate(false)}>Cancelar</button><button type="submit">Crear editor</button></div></form></Modal>}
+  </main>;
+
   return <div className="editor-shell">
     <aside className={`toolbar ${collapsed ? 'collapsed' : ''}`}>
       <button className="icon-button collapse" onClick={() => setCollapsed(!collapsed)} aria-label="Contraer panel">{collapsed ? '›' : '‹'}</button>
       {!collapsed && <>
-        <div className="brand"><span className="brand-mark">▦</span><div><strong>editor</strong><small>de muebles</small></div></div>
+        <button className="brand brand-home" onClick={() => { setSaved(readSaved()); setScreen('home'); }} title="Ir a proyectos"><span className="brand-mark">▦</span><span><strong>editor</strong><small>de muebles</small></span></button>
         <div className="tool-section"><p className="section-label">Agregar división</p>
           <div className="compact-grid">
             <button draggable className={`tool-button ${tool === 'vertical' ? 'active' : ''}`} onClick={() => setTool(tool === 'vertical' ? null : 'vertical')} onDragStart={(e) => { e.dataTransfer.setData('orientation', 'vertical'); setTool('vertical'); }}><span className="vertical-icon" />Vertical</button>
@@ -194,20 +253,12 @@ export default function FurnitureEditor() {
         </div>
         <div className="tool-section"><p className="section-label">Vista</p>
           <label className="toggle-row"><input type="checkbox" checked={showDimensions} onChange={(e) => setShowDimensions(e.target.checked)} /><span>Mostrar cotas</span></label>
-          <div className="zoom-row"><button onClick={() => setZoom((value) => Math.max(.5, round(value - .1)))}>−</button><span>{Math.round(zoom * 100)}%</span><button onClick={() => setZoom((value) => Math.min(2.5, round(value + .1)))}>+</button></div>
-        </div>
-        <div className="tool-section"><p className="section-label">Acciones</p>
-          <div className="compact-grid action-grid">
-            <button className="action-button" onClick={save} disabled={!design}>Guardar</button>
-            <button className="action-button" onClick={() => { setSaved(readSaved()); setShowLoad(true); }}>Cargar</button>
-            <button className="action-button" onClick={exportJson} disabled={!design}>Exportar JSON</button>
-            <button className="action-button ghost" onClick={() => setShowCreate(true)}>Nuevo</button>
-          </div>
+          <div className="zoom-row"><button onClick={() => setZoom((value) => Math.max(.2, round(value - .1)))}>−</button><span>{Math.round(zoom * 100)}%</span><button onClick={() => setZoom((value) => Math.min(2.5, round(value + .1)))}>+</button></div>
         </div>
       </>}
     </aside>
     <section className="workspace">
-      {design && <header className="workspace-header"><div><p>Diseño actual</p><h1>{design.name}</h1></div><span>{cm(design.width)} ancho × {cm(design.height)} alto</span></header>}
+      {design && <header className="workspace-header"><div><p>Diseño actual</p><div className="project-title-row"><h1>{design.name}</h1><button className="header-save" onClick={save} title="Guardar proyecto" aria-label="Guardar proyecto"><img src={disk} alt="Guardar proyecto" /></button></div></div><div className="header-controls"><span>{cm(design.width)} ancho × {cm(design.height)} alto</span></div></header>}
       <svg ref={svgRef} className="canvas" viewBox={viewBox} preserveAspectRatio="xMidYMin meet" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const orientation = e.dataTransfer.getData('orientation') as Orientation; if (orientation) addAt(orientation, svgPoint(e)); }} onPointerMove={(e) => {
         if (!design || !dragging) return; const panel = panels.find((item) => item.id === dragging); if (!panel) return;
         const point = svgPoint(e); const proposed = panel.orientation === 'vertical' ? point.x - panel.container.x - THICKNESS / 2 : point.y - panel.container.y - THICKNESS / 2;
@@ -228,6 +279,5 @@ export default function FurnitureEditor() {
       {tool === 'vertical' || tool === 'horizontal' ? <div className="canvas-tip">Soltá una división {tool} dentro de un hueco</div> : null}
     </section>
     {showCreate && <Modal><div className="modal-heading"><span className="brand-mark">▦</span><div><p>Nuevo proyecto</p><h2>Crear un mueble</h2></div></div><form onSubmit={(e) => { e.preventDefault(); create(e.currentTarget); }}><label>Nombre del mueble<input name="name" required placeholder="Ej. Biblioteca living" defaultValue={design?.name || ''} /></label><div className="form-grid"><label>Ancho exterior (cm)<input name="width" required type="number" min="4" step="0.1" placeholder="120" defaultValue={design?.width} /></label><label>Alto exterior (cm)<input name="height" required type="number" min="4" step="0.1" placeholder="180" defaultValue={design?.height} /></label></div><p className="form-note">Todas las piezas tienen un espesor de 1,8 cm.</p><div className="modal-actions">{design && <button type="button" className="secondary" onClick={() => setShowCreate(false)}>Cancelar</button>}<button type="submit">Crear editor</button></div></form></Modal>}
-    {showLoad && <Modal><div className="modal-heading"><div><p>Diseños guardados</p><h2>Cargar un mueble</h2></div></div><div className="saved-list">{Object.values(saved).length ? Object.values(saved).map((item) => <button key={item.id} onClick={() => { setDesign(item); setShowLoad(false); setSelected(null); setZoom(1); }}><strong>{item.name}</strong><span>{cm(item.width)} × {cm(item.height)}</span></button>) : <p className="empty-list">Todavía no hay muebles guardados en este navegador.</p>}</div><div className="modal-actions"><button className="secondary" onClick={() => setShowLoad(false)}>Cerrar</button></div></Modal>}
   </div>;
 }
