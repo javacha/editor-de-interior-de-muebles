@@ -241,45 +241,60 @@ export default function FurnitureEditor() {
     {showCreate && <Modal><div className="modal-heading"><span className="brand-mark">▦</span><div><p>Nuevo proyecto</p><h2>Crear un mueble</h2></div></div><form onSubmit={(e) => { e.preventDefault(); create(e.currentTarget); }}><label>Nombre del mueble<input name="name" required placeholder="Ej. Biblioteca living" /></label><div className="form-grid"><label>Ancho exterior (cm)<input name="width" required type="number" min="4" step="0.1" placeholder="120" /></label><label>Alto exterior (cm)<input name="height" required type="number" min="4" step="0.1" placeholder="180" /></label></div><p className="form-note">Todas las piezas tienen un espesor de 1,8 cm.</p><div className="modal-actions"><button type="button" className="secondary" onClick={() => setShowCreate(false)}>Cancelar</button><button type="submit">Crear editor</button></div></form></Modal>}
   </main>;
 
-  return <div className="editor-shell">
-    <aside className={`toolbar ${collapsed ? 'collapsed' : ''}`}>
-      <button className="icon-button collapse" onClick={() => setCollapsed(!collapsed)} aria-label="Contraer panel">{collapsed ? '›' : '‹'}</button>
-      {!collapsed && <>
+  return <>
+    {design && <header className="editor-header">
+      <div className="editor-header-brand">
         <button className="brand brand-home" onClick={() => { setSaved(readSaved()); setScreen('home'); }} title="Ir a proyectos"><span className="brand-mark">▦</span><span><strong>editor</strong><small>de muebles</small></span></button>
-        <div className="tool-section"><p className="section-label">Agregar división</p>
-          <div className="compact-grid">
-            <button draggable className={`tool-button ${tool === 'vertical' ? 'active' : ''}`} onClick={() => setTool(tool === 'vertical' ? null : 'vertical')} onDragStart={(e) => { e.dataTransfer.setData('orientation', 'vertical'); setTool('vertical'); }}><span className="vertical-icon" />Vertical</button>
-            <button draggable className={`tool-button ${tool === 'horizontal' ? 'active' : ''}`} onClick={() => setTool(tool === 'horizontal' ? null : 'horizontal')} onDragStart={(e) => { e.dataTransfer.setData('orientation', 'horizontal'); setTool('horizontal'); }}><span className="horizontal-icon" />Horizontal</button>
-            <button className={`action-button danger ${tool === 'erase' ? 'active' : ''}`} onClick={() => setTool(tool === 'erase' ? null : 'erase')}>{tool === 'erase' ? 'Activo' : 'Borrar'}</button>
+      </div>
+      <div className="editor-header-main">
+        <p>Diseño actual</p>
+        <div className="project-title-row"><h1>{design.name}</h1><button className="header-save" onClick={save} title="Guardar proyecto" aria-label="Guardar proyecto"><img src={disk} alt="Guardar proyecto" /></button></div>
+      </div>
+      <div className="header-controls"><span>{cm(design.width)} ancho × {cm(design.height)} alto</span></div>
+    </header>}
+
+    <div className="editor-shell">
+      <aside className={`toolbar ${collapsed ? 'collapsed' : ''}`}>
+        <button className="icon-button collapse" onClick={() => setCollapsed(!collapsed)} aria-label="Contraer panel">{collapsed ? '›' : '‹'}</button>
+        {collapsed ? <div className="toolbar-collapsed">
+          <button draggable className={`tool-button icon-only ${tool === 'vertical' ? 'active' : ''}`} onClick={() => setTool(tool === 'vertical' ? null : 'vertical')} onDragStart={(e) => { e.dataTransfer.setData('orientation', 'vertical'); setTool('vertical'); }} title="Agregar división vertical" aria-label="Agregar división vertical"><span className="vertical-icon" /></button>
+          <button draggable className={`tool-button icon-only ${tool === 'horizontal' ? 'active' : ''}`} onClick={() => setTool(tool === 'horizontal' ? null : 'horizontal')} onDragStart={(e) => { e.dataTransfer.setData('orientation', 'horizontal'); setTool('horizontal'); }} title="Agregar división horizontal" aria-label="Agregar división horizontal"><span className="horizontal-icon" /></button>
+          <button className={`action-button danger icon-only ${tool === 'erase' ? 'active' : ''}`} onClick={() => setTool(tool === 'erase' ? null : 'erase')} title="Borrar división" aria-label="Borrar división">⌫</button>
+        </div> : <>
+          <div className="tool-section"><p className="section-label">Agregar división</p>
+            <div className="compact-grid">
+              <button draggable className={`tool-button ${tool === 'vertical' ? 'active' : ''}`} onClick={() => setTool(tool === 'vertical' ? null : 'vertical')} onDragStart={(e) => { e.dataTransfer.setData('orientation', 'vertical'); setTool('vertical'); }}><span className="vertical-icon" />Vertical</button>
+              <button draggable className={`tool-button ${tool === 'horizontal' ? 'active' : ''}`} onClick={() => setTool(tool === 'horizontal' ? null : 'horizontal')} onDragStart={(e) => { e.dataTransfer.setData('orientation', 'horizontal'); setTool('horizontal'); }}><span className="horizontal-icon" />Horizontal</button>
+              <button className={`action-button danger ${tool === 'erase' ? 'active' : ''}`} onClick={() => setTool(tool === 'erase' ? null : 'erase')}>{tool === 'erase' ? 'Activo' : 'Borrar'}</button>
+            </div>
           </div>
-        </div>
-        <div className="tool-section"><p className="section-label">Vista</p>
-          <label className="toggle-row"><input type="checkbox" checked={showDimensions} onChange={(e) => setShowDimensions(e.target.checked)} /><span>Mostrar cotas</span></label>
-          <div className="zoom-row"><button onClick={() => setZoom((value) => Math.max(.2, Number((value - .05).toFixed(2))))}>−</button><span>{zoomPercent}%</span><button onClick={() => setZoom((value) => Math.min(2.5, Number((value + .05).toFixed(2))))}>+</button></div>
-        </div>
-      </>}
-    </aside>
-    <section className="workspace">
-      {design && <header className="workspace-header"><div><p>Diseño actual</p><div className="project-title-row"><h1>{design.name}</h1><button className="header-save" onClick={save} title="Guardar proyecto" aria-label="Guardar proyecto"><img src={disk} alt="Guardar proyecto" /></button></div></div><div className="header-controls"><span>{cm(design.width)} ancho × {cm(design.height)} alto</span></div></header>}
-      <svg ref={svgRef} className="canvas" viewBox={viewBox} preserveAspectRatio="xMidYMin meet" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const orientation = e.dataTransfer.getData('orientation') as Orientation; if (orientation) addAt(orientation, svgPoint(e)); }} onPointerMove={(e) => {
-        if (!design || !dragging) return; const panel = panels.find((item) => item.id === dragging); if (!panel) return;
-        const point = svgPoint(e); const proposed = panel.orientation === 'vertical' ? point.x - panel.container.x - THICKNESS / 2 : point.y - panel.container.y - THICKNESS / 2;
-        const position = validPosition(panel.orientation, panel.container, proposed, panels, panel.id);
-        if (position !== null) setDesign({ ...design, root: updateSplit(design.root, panel.id, position) });
-      }} onPointerUp={() => setDragging(null)}>
-        {!design ? <text x="50" y="35" textAnchor="middle" className="empty-svg">Creá un mueble para comenzar</text> : <>
-          <rect x="0" y="0" width={design.width} height={design.height} rx=".5" className="outer-panel" />
-          <rect x={THICKNESS} y={THICKNESS} width={design.width - THICKNESS * 2} height={design.height - THICKNESS * 2} className="interior" />
-          {leaves.map((rect, index) => showDimensions && rect.w > 7 && rect.h > 5 && <text key={`space-${index}`} x={rect.x + rect.w / 2} y={rect.y + rect.h / 2} textAnchor="middle" className="space-label">
-            <tspan x={rect.x + rect.w / 2} dy="-.55em">{cm(rect.w)}</tspan>
-            <tspan x={rect.x + rect.w / 2} dy="1.2em">{cm(rect.h)}</tspan>
-          </text>)}
-          {panels.map((panel) => <rect key={panel.id} x={panel.rect.x} y={panel.rect.y} width={panel.rect.w} height={panel.rect.h} className={`division ${selected === panel.id ? 'selected' : ''} ${tool === 'erase' ? 'erasable' : ''}`} onPointerDown={(e) => { e.stopPropagation(); setSelected(panel.id); if (tool === 'erase') setDesign({ ...design, root: removeSplit(design.root, panel.id) }); else { setDragging(panel.id); e.currentTarget.setPointerCapture(e.pointerId); } }} />)}
-          {showDimensions && <g className="outer-dimension"><line x1="0" y1={-pad / 3} x2={design.width} y2={-pad / 3} /><text x={design.width / 2} y={-pad / 3 - 1.3} textAnchor="middle">{cm(design.width)}</text><line x1={-pad / 3} y1="0" x2={-pad / 3} y2={design.height} /><text x={-pad / 3 - 1.3} y={design.height / 2} textAnchor="middle" transform={`rotate(-90 ${-pad / 3 - 1.3} ${design.height / 2})`}>{cm(design.height)}</text></g>}
+          <div className="tool-section"><p className="section-label">Vista</p>
+            <label className="toggle-row"><input type="checkbox" checked={showDimensions} onChange={(e) => setShowDimensions(e.target.checked)} /><span>Mostrar dimensiones</span></label>
+            <div className="zoom-row"><button onClick={() => setZoom((value) => Math.max(.2, Number((value - .05).toFixed(2))))}>−</button><span>{zoomPercent}%</span><button onClick={() => setZoom((value) => Math.min(2.5, Number((value + .05).toFixed(2))))}>+</button></div>
+          </div>
         </>}
-      </svg>
-      {tool === 'vertical' || tool === 'horizontal' ? <div className="canvas-tip">Soltá una división {tool} dentro de un hueco</div> : null}
-    </section>
-    {showCreate && <Modal><div className="modal-heading"><span className="brand-mark">▦</span><div><p>Nuevo proyecto</p><h2>Crear un mueble</h2></div></div><form onSubmit={(e) => { e.preventDefault(); create(e.currentTarget); }}><label>Nombre del mueble<input name="name" required placeholder="Ej. Biblioteca living" defaultValue={design?.name || ''} /></label><div className="form-grid"><label>Ancho exterior (cm)<input name="width" required type="number" min="4" step="0.1" placeholder="120" defaultValue={design?.width} /></label><label>Alto exterior (cm)<input name="height" required type="number" min="4" step="0.1" placeholder="180" defaultValue={design?.height} /></label></div><p className="form-note">Todas las piezas tienen un espesor de 1,8 cm.</p><div className="modal-actions">{design && <button type="button" className="secondary" onClick={() => setShowCreate(false)}>Cancelar</button>}<button type="submit">Crear editor</button></div></form></Modal>}
-  </div>;
+      </aside>
+      <section className="workspace">
+        <svg ref={svgRef} className="canvas" viewBox={viewBox} preserveAspectRatio="xMidYMin meet" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const orientation = e.dataTransfer.getData('orientation') as Orientation; if (orientation) addAt(orientation, svgPoint(e)); }} onPointerMove={(e) => {
+          if (!design || !dragging) return; const panel = panels.find((item) => item.id === dragging); if (!panel) return;
+          const point = svgPoint(e); const proposed = panel.orientation === 'vertical' ? point.x - panel.container.x - THICKNESS / 2 : point.y - panel.container.y - THICKNESS / 2;
+          const position = validPosition(panel.orientation, panel.container, proposed, panels, panel.id);
+          if (position !== null) setDesign({ ...design, root: updateSplit(design.root, panel.id, position) });
+        }} onPointerUp={() => setDragging(null)}>
+          {!design ? <text x="50" y="35" textAnchor="middle" className="empty-svg">Creá un mueble para comenzar</text> : <>
+            <rect x="0" y="0" width={design.width} height={design.height} rx=".5" className="outer-panel" />
+            <rect x={THICKNESS} y={THICKNESS} width={design.width - THICKNESS * 2} height={design.height - THICKNESS * 2} className="interior" />
+            {leaves.map((rect, index) => showDimensions && rect.w > 7 && rect.h > 5 && <text key={`space-${index}`} x={rect.x + rect.w / 2} y={rect.y + rect.h / 2} textAnchor="middle" className="space-label">
+              <tspan x={rect.x + rect.w / 2} dy="-.55em">{cm(rect.w)}</tspan>
+              <tspan x={rect.x + rect.w / 2} dy="1.2em">{cm(rect.h)}</tspan>
+            </text>)}
+            {panels.map((panel) => <rect key={panel.id} x={panel.rect.x} y={panel.rect.y} width={panel.rect.w} height={panel.rect.h} className={`division ${selected === panel.id ? 'selected' : ''} ${tool === 'erase' ? 'erasable' : ''}`} onPointerDown={(e) => { e.stopPropagation(); setSelected(panel.id); if (tool === 'erase') setDesign({ ...design, root: removeSplit(design.root, panel.id) }); else { setDragging(panel.id); e.currentTarget.setPointerCapture(e.pointerId); } }} />)}
+            {showDimensions && <g className="outer-dimension"><line x1="0" y1={-pad / 3} x2={design.width} y2={-pad / 3} /><text x={design.width / 2} y={-pad / 3 - 1.3} textAnchor="middle">{cm(design.width)}</text><line x1={-pad / 3} y1="0" x2={-pad / 3} y2={design.height} /><text x={-pad / 3 - 1.3} y={design.height / 2} textAnchor="middle" transform={`rotate(-90 ${-pad / 3 - 1.3} ${design.height / 2})`}>{cm(design.height)}</text></g>}
+          </>}
+        </svg>
+        {tool === 'vertical' || tool === 'horizontal' ? <div className="canvas-tip">Soltá una división {tool} dentro de un hueco</div> : null}
+      </section>
+      {showCreate && <Modal><div className="modal-heading"><span className="brand-mark">▦</span><div><p>Nuevo proyecto</p><h2>Crear un mueble</h2></div></div><form onSubmit={(e) => { e.preventDefault(); create(e.currentTarget); }}><label>Nombre del mueble<input name="name" required placeholder="Ej. Biblioteca living" defaultValue={design?.name || ''} /></label><div className="form-grid"><label>Ancho exterior (cm)<input name="width" required type="number" min="4" step="0.1" placeholder="120" defaultValue={design?.width} /></label><label>Alto exterior (cm)<input name="height" required type="number" min="4" step="0.1" placeholder="180" defaultValue={design?.height} /></label></div><p className="form-note">Todas las piezas tienen un espesor de 1,8 cm.</p><div className="modal-actions">{design && <button type="button" className="secondary" onClick={() => setShowCreate(false)}>Cancelar</button>}<button type="submit">Crear editor</button></div></form></Modal>}
+    </div>
+  </>;
 }
