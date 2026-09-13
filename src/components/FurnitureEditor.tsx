@@ -12,6 +12,7 @@ type Panel = { id: string; orientation: Orientation; rect: Rect; container: Rect
 
 const THICKNESS = 1.8;
 const MIN_DIVISION_GAP = 5;
+const BASE_ZOOM = 0.5;
 const STORAGE_KEY = 'editor-de-muebles.designs.v1';
 const leaf: Leaf = { type: 'leaf' };
 const round = (value: number) => Math.round(value * 10) / 10;
@@ -131,7 +132,7 @@ export default function FurnitureEditor() {
   const [collapsed, setCollapsed] = useState(false);
   const [tool, setTool] = useState<Orientation | 'erase' | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(BASE_ZOOM);
   const [showCreate, setShowCreate] = useState(false);
   const [saved, setSaved] = useState<Record<string, Design>>({});
   const [importError, setImportError] = useState('');
@@ -149,7 +150,7 @@ export default function FurnitureEditor() {
     const height = Number(data.get('height'));
     if (!name || !Number.isFinite(width) || !Number.isFinite(height) || width <= THICKNESS * 2 || height <= THICKNESS * 2) return;
     setDesign({ version: 1, id: id(), name, width, height, root: leaf });
-    setShowCreate(false); setSelected(null); setZoom(1); setScreen('editor');
+    setShowCreate(false); setSelected(null); setZoom(BASE_ZOOM); setScreen('editor');
   }
 
   function svgPoint(event: React.PointerEvent | React.DragEvent) {
@@ -186,7 +187,7 @@ export default function FurnitureEditor() {
   }
 
   function openProject(item: Design) {
-    setDesign(item); setScreen('editor'); setSelected(null); setZoom(1); setTool(null);
+    setDesign(item); setScreen('editor'); setSelected(null); setZoom(BASE_ZOOM); setTool(null);
   }
 
   async function importProject(file?: File) {
@@ -219,6 +220,7 @@ export default function FurnitureEditor() {
   // El zoom se ancla al margen superior: alejar la vista no desplaza el mueble hacia abajo.
   const pad = 10;
   const viewBox = design ? `${design.width / 2 - (design.width + pad * 2) / (2 * zoom)} ${-pad} ${(design.width + pad * 2) / zoom} ${(design.height + pad * 2) / zoom}` : '0 0 100 70';
+  const zoomPercent = Math.round((zoom / BASE_ZOOM) * 100);
 
   if (screen === 'home') return <main className="project-home">
     <header className="home-header"><div className="brand"><span className="brand-mark">▦</span><div><strong>editor</strong><small>de muebles</small></div></div></header>
@@ -253,7 +255,7 @@ export default function FurnitureEditor() {
         </div>
         <div className="tool-section"><p className="section-label">Vista</p>
           <label className="toggle-row"><input type="checkbox" checked={showDimensions} onChange={(e) => setShowDimensions(e.target.checked)} /><span>Mostrar cotas</span></label>
-          <div className="zoom-row"><button onClick={() => setZoom((value) => Math.max(.2, round(value - .1)))}>−</button><span>{Math.round(zoom * 100)}%</span><button onClick={() => setZoom((value) => Math.min(2.5, round(value + .1)))}>+</button></div>
+          <div className="zoom-row"><button onClick={() => setZoom((value) => Math.max(.2, Number((value - .05).toFixed(2))))}>−</button><span>{zoomPercent}%</span><button onClick={() => setZoom((value) => Math.min(2.5, Number((value + .05).toFixed(2))))}>+</button></div>
         </div>
       </>}
     </aside>
