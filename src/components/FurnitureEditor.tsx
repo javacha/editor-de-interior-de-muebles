@@ -189,8 +189,8 @@ export default function FurnitureEditor() {
           <div className="compact-grid">
             <button draggable className={`tool-button ${tool === 'vertical' ? 'active' : ''}`} onClick={() => setTool(tool === 'vertical' ? null : 'vertical')} onDragStart={(e) => { e.dataTransfer.setData('orientation', 'vertical'); setTool('vertical'); }}><span className="vertical-icon" />Vertical</button>
             <button draggable className={`tool-button ${tool === 'horizontal' ? 'active' : ''}`} onClick={() => setTool(tool === 'horizontal' ? null : 'horizontal')} onDragStart={(e) => { e.dataTransfer.setData('orientation', 'horizontal'); setTool('horizontal'); }}><span className="horizontal-icon" />Horizontal</button>
+            <button className={`action-button danger ${tool === 'erase' ? 'active' : ''}`} onClick={() => setTool(tool === 'erase' ? null : 'erase')}>{tool === 'erase' ? 'Activo' : 'Borrar'}</button>
           </div>
-          <p className="hint">Arrastrá una división al hueco deseado.</p>
         </div>
         <div className="tool-section"><p className="section-label">Vista</p>
           <label className="toggle-row"><input type="checkbox" checked={showDimensions} onChange={(e) => setShowDimensions(e.target.checked)} /><span>Mostrar cotas</span></label>
@@ -198,7 +198,6 @@ export default function FurnitureEditor() {
         </div>
         <div className="tool-section"><p className="section-label">Acciones</p>
           <div className="compact-grid action-grid">
-            <button className={`action-button danger ${tool === 'erase' ? 'active' : ''}`} onClick={() => setTool(tool === 'erase' ? null : 'erase')}>⌫ {tool === 'erase' ? 'Activo' : 'Borrar'}</button>
             <button className="action-button" onClick={save} disabled={!design}>Guardar</button>
             <button className="action-button" onClick={() => { setSaved(readSaved()); setShowLoad(true); }}>Cargar</button>
             <button className="action-button" onClick={exportJson} disabled={!design}>Exportar JSON</button>
@@ -208,7 +207,7 @@ export default function FurnitureEditor() {
       </>}
     </aside>
     <section className="workspace">
-      {design && <header className="workspace-header"><div><p>Diseño actual</p><h1>{design.name}</h1></div><span>{cm(design.width)} × {cm(design.height)}</span></header>}
+      {design && <header className="workspace-header"><div><p>Diseño actual</p><h1>{design.name}</h1></div><span>{cm(design.width)} ancho × {cm(design.height)} alto</span></header>}
       <svg ref={svgRef} className="canvas" viewBox={viewBox} preserveAspectRatio="xMidYMin meet" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const orientation = e.dataTransfer.getData('orientation') as Orientation; if (orientation) addAt(orientation, svgPoint(e)); }} onPointerMove={(e) => {
         if (!design || !dragging) return; const panel = panels.find((item) => item.id === dragging); if (!panel) return;
         const point = svgPoint(e); const proposed = panel.orientation === 'vertical' ? point.x - panel.container.x - THICKNESS / 2 : point.y - panel.container.y - THICKNESS / 2;
@@ -218,7 +217,10 @@ export default function FurnitureEditor() {
         {!design ? <text x="50" y="35" textAnchor="middle" className="empty-svg">Creá un mueble para comenzar</text> : <>
           <rect x="0" y="0" width={design.width} height={design.height} rx=".5" className="outer-panel" />
           <rect x={THICKNESS} y={THICKNESS} width={design.width - THICKNESS * 2} height={design.height - THICKNESS * 2} className="interior" />
-          {leaves.map((rect, index) => showDimensions && rect.w > 7 && rect.h > 5 && <text key={`space-${index}`} x={rect.x + rect.w / 2} y={rect.y + rect.h / 2} textAnchor="middle" className="space-label">{cm(rect.w)} × {cm(rect.h)}</text>)}
+          {leaves.map((rect, index) => showDimensions && rect.w > 7 && rect.h > 5 && <text key={`space-${index}`} x={rect.x + rect.w / 2} y={rect.y + rect.h / 2} textAnchor="middle" className="space-label">
+            <tspan x={rect.x + rect.w / 2} dy="-.55em">{cm(rect.w)}</tspan>
+            <tspan x={rect.x + rect.w / 2} dy="1.2em">{cm(rect.h)}</tspan>
+          </text>)}
           {panels.map((panel) => <rect key={panel.id} x={panel.rect.x} y={panel.rect.y} width={panel.rect.w} height={panel.rect.h} className={`division ${selected === panel.id ? 'selected' : ''} ${tool === 'erase' ? 'erasable' : ''}`} onPointerDown={(e) => { e.stopPropagation(); setSelected(panel.id); if (tool === 'erase') setDesign({ ...design, root: removeSplit(design.root, panel.id) }); else { setDragging(panel.id); e.currentTarget.setPointerCapture(e.pointerId); } }} />)}
           {showDimensions && <g className="outer-dimension"><line x1="0" y1={-pad / 3} x2={design.width} y2={-pad / 3} /><text x={design.width / 2} y={-pad / 3 - 1.3} textAnchor="middle">{cm(design.width)}</text><line x1={-pad / 3} y1="0" x2={-pad / 3} y2={design.height} /><text x={-pad / 3 - 1.3} y={design.height / 2} textAnchor="middle" transform={`rotate(-90 ${-pad / 3 - 1.3} ${design.height / 2})`}>{cm(design.height)}</text></g>}
         </>}
