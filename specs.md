@@ -24,9 +24,11 @@ Al crear o mover una división, se deberán visualizar y actualizar en vivo las 
 
 - Al iniciar, se debe solicitar el nombre del mueble y sus dimensiones exteriores (ancho y alto).
 - Debe existir un panel lateral izquierdo, visualmente mínimo y contraíble, que contenga las herramientas y acciones del editor.
+- El panel lateral debe ser lo más compacto posible para evitar scroll durante el uso de drag & drop. Las herramientas y acciones en formato botón deben disponerse de a dos por fila.
 - La interfaz debe estar íntegramente en español y utilizar componentes con estilo shadcn. La paleta es libre.
 - El área del editor debe maximizar la visibilidad del mueble.
-- Debe permitir zoom mediante controles `−` y `+`.
+- El mueble debe ubicarse lo más cerca posible del borde superior del área de dibujo, respetando un pequeño margen para las cotas exteriores.
+- Debe permitir zoom mediante controles `−` y `+`. El zoom debe permanecer anclado al margen superior: al alejar la vista, el mueble no debe desplazarse hacia abajo.
 - Deben existir dos objetos para drag & drop:
   - división vertical;
   - división horizontal.
@@ -37,6 +39,9 @@ Al crear o mover una división, se deberán visualizar y actualizar en vivo las 
   - dimensiones exteriores del mueble;
   - espacios libres entre paneles;
   - valores en cm con decimales cuando corresponda.
+- Las cotas internas deben mostrar la medida del ancho en la primera línea y la medida del alto en la segunda línea.
+- Las cotas internas deben usar una tipografía menor que las cotas exteriores (implementación actual: `2,2 px` frente a `3 px`).
+- Cada cota interna debe permanecer centrada dentro de su compartimento. No se debe reubicar, redimensionar ni ocultar automáticamente para resolver colisiones entre textos.
 - Debe existir un modo **Borrar**. Al estar activo, un clic sobre una división la elimina y recalcula las distancias de los objetos restantes. El modo permanece activo hasta que la persona usuaria lo desactive manualmente.
 - No se requiere edición numérica de posiciones o dimensiones de divisiones.
 - No se requiere funcionalidad de deshacer/rehacer.
