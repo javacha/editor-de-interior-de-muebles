@@ -22,16 +22,23 @@ Al crear o mover una división, se deberán visualizar y actualizar en vivo las 
 
 ## Usabilidad
 
+### Pantalla inicial
 - Al iniciar, se debe mostrar una página inicial de proyectos.
 - Desde la página inicial se debe poder crear un nuevo proyecto, solicitando el nombre del mueble y sus dimensiones exteriores (ancho y alto).
 - Desde la página inicial se debe poder cargar un proyecto desde un archivo JSON válido.
 - La página inicial debe listar los proyectos guardados en el navegador. Para cada proyecto se debe poder abrirlo, eliminarlo, renombrarlo y exportarlo como JSON.
+
+### Layout general del editor
 - Debe existir un panel lateral izquierdo, visualmente mínimo y contraíble, que contenga las herramientas y acciones del editor.
-- El panel lateral debe ser lo más compacto posible para evitar scroll durante el uso de drag & drop. Las herramientas y acciones en formato botón deben disponerse de a dos por fila.
+- El panel lateral debe ser lo más compacto posible para evitar scroll durante el uso de drag & drop.
+- Las herramientas y acciones en formato botón deben disponerse en una sola columna, con un botón por fila y un ancho reducido.
+- La interfaz debe contar con un encabezado superior completo y fijo. Debajo de ese encabezado aparece el panel de acciones, separado visualmente para evitar superposición.
 - El logotipo del panel lateral debe llevar a la página inicial de proyectos.
 - No debe existir un bloque lateral independiente de acciones del proyecto.
 - El guardado del proyecto actual debe estar disponible como un botón con icono de disquete, ubicado junto al nombre del proyecto en el encabezado del editor.
 - La interfaz debe estar íntegramente en español y utilizar componentes con estilo shadcn. La paleta es libre.
+
+### Área de dibujo y herramientas
 - El área del editor debe maximizar la visibilidad del mueble.
 - El mueble debe ubicarse lo más cerca posible del borde superior del área de dibujo, respetando un pequeño margen para las cotas exteriores.
 - Debe permitir zoom mediante controles `−` y `+`. El zoom debe permanecer anclado al margen superior: al alejar la vista, el mueble no debe desplazarse hacia abajo.
