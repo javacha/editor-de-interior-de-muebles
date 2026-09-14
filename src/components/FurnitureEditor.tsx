@@ -223,7 +223,7 @@ export default function FurnitureEditor() {
   const zoomPercent = Math.round((zoom / BASE_ZOOM) * 100);
 
   if (screen === 'home') return <main className="project-home">
-    <header className="home-header"><div className="brand"><span className="brand-mark">▦</span><div><strong>editor</strong><small>de muebles</small></div></div></header>
+    <header className="home-header"><div className="brand"><span className="brand-mark">▦</span><div><strong>diseño de interiores</strong><small>de muebles</small></div></div></header>
     <section className="home-content">
       <div className="home-intro"><p className="eyebrow">Tus diseños</p><h1>Proyectos de muebles</h1><p>Creá un diseño nuevo, importá una definición JSON o continuá trabajando sobre uno guardado.</p></div>
       <div className="home-actions">
@@ -244,7 +244,7 @@ export default function FurnitureEditor() {
   return <>
     {design && <header className="editor-header">
       <div className="editor-header-brand">
-        <button className="brand brand-home" onClick={() => { setSaved(readSaved()); setScreen('home'); }} title="Ir a proyectos"><span className="brand-mark">▦</span><span><strong>editor</strong><small>de muebles</small></span></button>
+        <button className="brand brand-home" onClick={() => { setSaved(readSaved()); setScreen('home'); }} title="Ir a proyectos"><span className="brand-mark">▦</span><span><strong>editor</strong><small>de interiores</small></span></button>
       </div>
       <div className="editor-header-main">
         <p>Diseño actual</p>
