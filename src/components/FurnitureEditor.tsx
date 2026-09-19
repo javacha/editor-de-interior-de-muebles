@@ -230,6 +230,25 @@ export default function FurnitureEditor() {
     setDesign(item); setScreen('editor'); setSelected(null); setZoom(BASE_ZOOM); setTool(null);
   }
 
+  function leaveEditor() {
+    if (!design) {
+      setSaved(readSaved());
+      setScreen('home');
+      return;
+    }
+    const savedVersion = saved[design.id];
+    const hasUnsavedChanges = !savedVersion || JSON.stringify(savedVersion) !== JSON.stringify(design);
+    if (!hasUnsavedChanges) {
+      setSaved(readSaved());
+      setScreen('home');
+      return;
+    }
+    const shouldLeave = window.confirm('Tienes cambios sin guardar. ¿Seguro que querés salir del editor?');
+    if (!shouldLeave) return;
+    setSaved(readSaved());
+    setScreen('home');
+  }
+
   async function importProject(file?: File) {
     if (!file) return;
     try {
@@ -284,7 +303,7 @@ export default function FurnitureEditor() {
   return <>
     {design && <header className="editor-header">
       <div className="editor-header-brand">
-        <button className="brand brand-home" onClick={() => { setSaved(readSaved()); setScreen('home'); }} title="Ir a proyectos"><span className="brand-mark">▦</span><span><strong>editor</strong><small>de interiores</small></span></button>
+        <button className="brand brand-home" onClick={leaveEditor} title="Ir a proyectos"><span className="brand-mark">▦</span><span><strong>editor</strong><small>de interiores</small></span></button>
       </div>
       <div className="editor-header-main">
         <p>Diseño actual</p>
