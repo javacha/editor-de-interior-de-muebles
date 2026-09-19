@@ -96,9 +96,9 @@ function overlapsOnCrossAxis(a: Panel, b: Panel) {
   return a.rect.x < b.rect.x + b.rect.w && b.rect.x < a.rect.x + a.rect.w;
 }
 
-function validPosition(orientation: Orientation, target: Rect, proposed: number, panels: Panel[], ignoreId?: string) {
+function validPosition(orientation: Orientation, target: Rect, proposed: number, panels: Panel[], ignoreId?: string, snapToGrid = true) {
   const max = (orientation === 'vertical' ? target.w : target.h) - THICKNESS;
-  let candidate = Math.max(0, Math.min(max, Math.round(proposed)));
+  const candidate = Math.max(0, Math.min(max, snapToGrid ? Math.round(proposed) : proposed));
   const newRect = orientation === 'vertical'
     ? { x: target.x + candidate, y: target.y, w: THICKNESS, h: target.h }
     : { x: target.x, y: target.y + candidate, w: target.w, h: THICKNESS };
@@ -111,6 +111,24 @@ function validPosition(orientation: Orientation, target: Rect, proposed: number,
     if (!(end + MIN_DIVISION_GAP <= otherStart || otherEnd + MIN_DIVISION_GAP <= start)) return null;
   }
   return candidate;
+}
+
+function nearestAlignmentPosition(orientation: Orientation, container: Rect, current: number, mode: 'left' | 'center' | 'right') {
+  const total = orientation === 'vertical' ? container.w : container.h;
+  const startGap = current;
+  const endGap = total - THICKNESS - current;
+
+  if (mode === 'left') return Math.round(startGap);
+  if (mode === 'right') return total - THICKNESS - Math.round(endGap);
+  return (total - THICKNESS) / 2;
+}
+
+function resolveAlignmentPosition(panel: Panel, proposed: number, mode: 'left' | 'center' | 'right') {
+  const total = panel.orientation === 'vertical' ? panel.container.w : panel.container.h;
+  const remainder = total - THICKNESS - proposed;
+  if (mode === 'left') return Math.round(proposed);
+  if (mode === 'right') return total - THICKNESS - Math.round(remainder);
+  return (total - THICKNESS) / 2;
 }
 
 function readSaved(): Record<string, Design> {
@@ -137,11 +155,33 @@ export default function FurnitureEditor() {
   const [saved, setSaved] = useState<Record<string, Design>>({});
   const [importError, setImportError] = useState('');
   const [dragging, setDragging] = useState<string | null>(null);
+  const [alignmentMode, setAlignmentMode] = useState<{ panelId: string; mode: 'left' | 'center' | 'right' } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => setSaved(readSaved()), []);
   const panels = useMemo(() => design ? collectPanels(design.root, innerRect(design)) : [], [design]);
   const leaves = useMemo(() => design ? collectLeaves(design.root, innerRect(design)) : [], [design]);
+  const selectedPanel = useMemo(() => (selected ? panels.find((panel) => panel.id === selected) ?? null : null), [panels, selected]);
+  const alignmentOptions = selectedPanel?.orientation === 'vertical'
+    ? [
+        { key: 'left' as const, label: 'Izq.' },
+        { key: 'center' as const, label: 'Centro' },
+        { key: 'right' as const, label: 'Der.' },
+      ]
+    : [
+        { key: 'left' as const, label: 'Arriba' },
+        { key: 'center' as const, label: 'Centro' },
+        { key: 'right' as const, label: 'Abajo' },
+      ];
+
+  function alignSelected(mode: 'left' | 'center' | 'right') {
+    if (!design || !selectedPanel) return;
+    const proposed = nearestAlignmentPosition(selectedPanel.orientation, selectedPanel.container, selectedPanel.position, mode);
+    const position = validPosition(selectedPanel.orientation, selectedPanel.container, proposed, panels, selectedPanel.id, false);
+    if (position === null) return;
+    setAlignmentMode({ panelId: selectedPanel.id, mode });
+    setDesign({ ...design, root: updateSplit(design.root, selectedPanel.id, position) });
+  }
 
   function create(form: HTMLFormElement) {
     const data = new FormData(form);
@@ -268,6 +308,17 @@ export default function FurnitureEditor() {
               <button className={`action-button danger ${tool === 'erase' ? 'active' : ''}`} onClick={() => setTool(tool === 'erase' ? null : 'erase')}>{tool === 'erase' ? 'Activo' : 'Borrar'}</button>
             </div>
           </div>
+          <div className="tool-section"><p className="section-label">Alineación</p>
+            <div className="alignment-grid">
+              {alignmentOptions.map((option) => <button
+                key={option.key}
+                type="button"
+                className="alignment-button"
+                onClick={() => alignSelected(option.key)}
+                disabled={!selectedPanel}
+              >{option.label}</button>)}
+            </div>
+          </div>
           <div className="tool-section"><p className="section-label">Vista</p>
             <label className="toggle-row"><input type="checkbox" checked={showDimensions} onChange={(e) => setShowDimensions(e.target.checked)} /><span>Mostrar dimensiones</span></label>
             <div className="zoom-row"><button onClick={() => setZoom((value) => Math.max(.2, Number((value - .05).toFixed(2))))}>−</button><span>{zoomPercent}%</span><button onClick={() => setZoom((value) => Math.min(2.5, Number((value + .05).toFixed(2))))}>+</button></div>
@@ -278,7 +329,10 @@ export default function FurnitureEditor() {
         <svg ref={svgRef} className="canvas" viewBox={viewBox} preserveAspectRatio="xMidYMin meet" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const orientation = e.dataTransfer.getData('orientation') as Orientation; if (orientation) addAt(orientation, svgPoint(e)); }} onPointerMove={(e) => {
           if (!design || !dragging) return; const panel = panels.find((item) => item.id === dragging); if (!panel) return;
           const point = svgPoint(e); const proposed = panel.orientation === 'vertical' ? point.x - panel.container.x - THICKNESS / 2 : point.y - panel.container.y - THICKNESS / 2;
-          const position = validPosition(panel.orientation, panel.container, proposed, panels, panel.id);
+          const alignedMode = alignmentMode?.panelId === panel.id ? alignmentMode.mode : null;
+          const position = alignedMode
+            ? validPosition(panel.orientation, panel.container, resolveAlignmentPosition(panel, proposed, alignedMode), panels, panel.id, false)
+            : validPosition(panel.orientation, panel.container, proposed, panels, panel.id);
           if (position !== null) setDesign({ ...design, root: updateSplit(design.root, panel.id, position) });
         }} onPointerUp={() => setDragging(null)}>
           {!design ? <text x="50" y="35" textAnchor="middle" className="empty-svg">Creá un mueble para comenzar</text> : <>
