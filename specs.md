@@ -26,7 +26,7 @@ Al crear o mover una división, se deberán visualizar y actualizar en vivo las 
 - Al iniciar, se debe mostrar una página inicial de proyectos.
 - Desde la página inicial se debe poder crear un nuevo proyecto, solicitando el nombre del mueble y sus dimensiones exteriores (ancho y alto).
 - Desde la página inicial se debe poder cargar un proyecto desde un archivo JSON válido.
-- La página inicial debe listar los proyectos guardados en el navegador. Para cada proyecto se debe poder abrirlo, eliminarlo, renombrarlo y exportarlo como JSON.
+- La página inicial debe listar los proyectos guardados en el servidor. Para cada proyecto se debe poder abrirlo, eliminarlo, renombrarlo y exportarlo como JSON.
 
 ### Layout general del editor
 - Debe existir un panel lateral izquierdo, visualmente mínimo y contraíble, que contenga las herramientas y acciones del editor.
@@ -61,8 +61,8 @@ Al crear o mover una división, se deberán visualizar y actualizar en vivo las 
 
 ## Guardado y exportación
 
-- Debe ser posible guardar en el navegador múltiples diseños de muebles, identificados por nombre.
-- Debe existir una acción para cargar y continuar editando cualquiera de los diseños guardados en el navegador.
+- Debe ser posible guardar en Vercel Blob múltiples diseños de muebles, identificados por nombre.
+- Debe existir una acción para cargar y continuar editando cualquiera de los diseños guardados en el servidor.
 - Debe existir una acción **Exportar** que descargue un archivo JSON con la definición completa del mueble y sus divisiones.
 - La exportación JSON debe ser compatible con la opción de carga de proyecto desde JSON.
 - No se requiere exportación PNG.

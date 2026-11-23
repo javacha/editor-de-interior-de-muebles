@@ -6,6 +6,8 @@ Editor 2D frontal para bosquejar muebles de melamina y sus divisiones internas.
 
 Requiere Node.js 20 o superior.
 
+La persistencia usa Vercel Blob. Para desarrollar localmente, creá un Blob Store en Vercel y configurá su variable `BLOB_READ_WRITE_TOKEN` en un archivo `.env.local` en la raíz del proyecto.
+
 ```bash
 npm install
 npm run dev
@@ -40,7 +42,9 @@ git push -u origin main
 
 1. Subí el repositorio a GitHub, GitLab o Bitbucket.
 2. En [Vercel](https://vercel.com/new), importá el repositorio.
-3. Vercel detectará Astro automáticamente. Conservá los comandos sugeridos: `npm run build` para build y `dist` como directorio de salida.
-4. Seleccioná **Deploy**.
+3. En el proyecto de Vercel, creá un Blob Store y conectalo al proyecto. Vercel configurará `BLOB_READ_WRITE_TOKEN` para las funciones.
+4. Desplegá con `npm run build`; Astro usa el adaptador de Vercel para servir las páginas y el API de persistencia.
 
-No requiere variables de entorno ni configuración adicional. Cada push a la rama principal producirá un despliegue nuevo.
+Los proyectos se guardan en un Blob Store compartido por la aplicación y las URL de Blob son públicas. Esta versión no implementa autenticación ni separación de proyectos por usuario: desplegala solo para un grupo de confianza si los diseños no deben ser visibles o modificables por otras personas que conozcan la URL de la aplicación.
+
+Cada push a la rama principal producirá un despliegue nuevo.

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { Design } from '../lib/server/designs';
 
 const disk = new URL('../styles/disk.png', import.meta.url).toString();
 
@@ -7,13 +8,11 @@ type Rect = { x: number; y: number; w: number; h: number };
 type Leaf = { type: 'leaf' };
 type Split = { type: 'split'; id: string; orientation: Orientation; position: number; first: Node; second: Node };
 type Node = Leaf | Split;
-type Design = { version: 1; id: string; name: string; width: number; height: number; root: Node };
 type Panel = { id: string; orientation: Orientation; rect: Rect; container: Rect; position: number };
 
 const THICKNESS = 1.8;
 const MIN_DIVISION_GAP = 5;
 const BASE_ZOOM = 0.5;
-const STORAGE_KEY = 'editor-de-muebles.designs.v1';
 const leaf: Leaf = { type: 'leaf' };
 const round = (value: number) => Math.round(value * 10) / 10;
 const cm = (value: number) => `${round(value).toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} cm`;
@@ -131,10 +130,6 @@ function resolveAlignmentPosition(panel: Panel, proposed: number, mode: 'left' |
   return (total - THICKNESS) / 2;
 }
 
-function readSaved(): Record<string, Design> {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch { return {}; }
-}
-
 function Modal({ children }: { children: React.ReactNode }) { return <div className="modal-backdrop"><section className="modal-card">{children}</section></div>; }
 
 function isDesign(value: unknown): value is Design {
@@ -153,12 +148,15 @@ export default function FurnitureEditor() {
   const [zoom, setZoom] = useState(BASE_ZOOM);
   const [showCreate, setShowCreate] = useState(false);
   const [saved, setSaved] = useState<Record<string, Design>>({});
+  const [loadingProjects, setLoadingProjects] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [storageMessage, setStorageMessage] = useState('');
   const [importError, setImportError] = useState('');
   const [dragging, setDragging] = useState<string | null>(null);
   const [alignmentMode, setAlignmentMode] = useState<{ panelId: string; mode: 'left' | 'center' | 'right' } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
-  useEffect(() => setSaved(readSaved()), []);
+  useEffect(() => { void loadSaved(); }, []);
   const panels = useMemo(() => design ? collectPanels(design.root, innerRect(design)) : [], [design]);
   const leaves = useMemo(() => design ? collectLeaves(design.root, innerRect(design)) : [], [design]);
   const selectedPanel = useMemo(() => (selected ? panels.find((panel) => panel.id === selected) ?? null : null), [panels, selected]);
@@ -212,10 +210,39 @@ export default function FurnitureEditor() {
     setDesign({ ...design, root: addSplit(design.root, rootRect, target, orientation, position) });
   }
 
-  function save() {
+  async function loadSaved() {
+    setLoadingProjects(true);
+    try {
+      const response = await fetch('/api/designs');
+      if (!response.ok) throw new Error('No se pudieron cargar los proyectos.');
+      const data = await response.json() as { designs: Design[] };
+      setSaved(Object.fromEntries(data.designs.map((item) => [item.id, item])));
+      setStorageMessage('');
+    } catch {
+      setStorageMessage('No se pudieron cargar los proyectos del servidor. Verificá la conexión y la configuración de Vercel Blob.');
+    } finally {
+      setLoadingProjects(false);
+    }
+  }
+
+  async function save() {
     if (!design) return;
-    const next = { ...readSaved(), [design.id]: design };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); setSaved(next);
+    setSaving(true);
+    try {
+      const response = await fetch('/api/designs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(design),
+      });
+      if (!response.ok) throw new Error('No se pudo guardar el proyecto.');
+      const data = await response.json() as { design: Design };
+      setSaved((current) => ({ ...current, [data.design.id]: data.design }));
+      setStorageMessage('Proyecto guardado en el servidor.');
+    } catch {
+      setStorageMessage('No se pudo guardar el proyecto. Verificá la conexión y la configuración de Vercel Blob.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   function exportJson(item = design) {
@@ -232,20 +259,20 @@ export default function FurnitureEditor() {
 
   function leaveEditor() {
     if (!design) {
-      setSaved(readSaved());
+      void loadSaved();
       setScreen('home');
       return;
     }
     const savedVersion = saved[design.id];
     const hasUnsavedChanges = !savedVersion || JSON.stringify(savedVersion) !== JSON.stringify(design);
     if (!hasUnsavedChanges) {
-      setSaved(readSaved());
+      void loadSaved();
       setScreen('home');
       return;
     }
     const shouldLeave = window.confirm('Tienes cambios sin guardar. ¿Seguro que querés salir del editor?');
     if (!shouldLeave) return;
-    setSaved(readSaved());
+    void loadSaved();
     setScreen('home');
   }
 
@@ -254,26 +281,48 @@ export default function FurnitureEditor() {
     try {
       const parsed: unknown = JSON.parse(await file.text());
       if (!isDesign(parsed) || parsed.width <= THICKNESS * 2 || parsed.height <= THICKNESS * 2) throw new Error();
-      openProject({ ...parsed, version: 1, id: typeof parsed.id === 'string' ? parsed.id : id() });
+      const validId = typeof parsed.id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(parsed.id);
+      openProject({ ...parsed, version: 1, id: validId ? parsed.id : id() });
       setImportError('');
     } catch { setImportError('El archivo no contiene un proyecto válido.'); }
   }
 
-  function deleteProject(projectId: string) {
+  async function deleteProject(projectId: string) {
     const item = saved[projectId];
     if (!item || !window.confirm(`¿Eliminar “${item.name}”?`)) return;
-    const next = { ...saved }; delete next[projectId];
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); setSaved(next);
+    try {
+      const response = await fetch(`/api/designs/${encodeURIComponent(projectId)}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('No se pudo eliminar el proyecto.');
+      setSaved((current) => {
+        const next = { ...current };
+        delete next[projectId];
+        return next;
+      });
+      setStorageMessage('Proyecto eliminado del servidor.');
+    } catch {
+      setStorageMessage('No se pudo eliminar el proyecto del servidor.');
+    }
   }
 
-  function renameProject(projectId: string) {
+  async function renameProject(projectId: string) {
     const item = saved[projectId];
     if (!item) return;
     const name = window.prompt('Nuevo nombre del mueble:', item.name)?.trim();
     if (!name) return;
-    const next = { ...saved, [projectId]: { ...item, name } };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); setSaved(next);
-    if (design?.id === projectId) setDesign(next[projectId]);
+    const renamed = { ...item, name };
+    try {
+      const response = await fetch('/api/designs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(renamed),
+      });
+      if (!response.ok) throw new Error('No se pudo renombrar el proyecto.');
+      setSaved((current) => ({ ...current, [projectId]: renamed }));
+      setStorageMessage('Nombre actualizado en el servidor.');
+      if (design?.id === projectId) setDesign(renamed);
+    } catch {
+      setStorageMessage('No se pudo renombrar el proyecto en el servidor.');
+    }
   }
 
   // El zoom se ancla al margen superior: alejar la vista no desplaza el mueble hacia abajo.
@@ -290,10 +339,11 @@ export default function FurnitureEditor() {
         <label className="home-secondary"><span>↑</span> Cargar desde JSON<input type="file" accept="application/json,.json" onChange={(event) => { void importProject(event.target.files?.[0]); event.currentTarget.value = ''; }} /></label>
       </div>
       {importError && <p className="import-error">{importError}</p>}
-      <section className="projects-section"><div className="projects-heading"><h2>Guardados en este navegador</h2><span>{Object.keys(saved).length}</span></div>
-        {Object.values(saved).length ? <div className="project-list">{Object.values(saved).map((item) => <article className="project-card" key={item.id}>
+      {storageMessage && <p className="import-error" role="status">{storageMessage}</p>}
+      <section className="projects-section"><div className="projects-heading"><h2>Guardados en el servidor</h2><span>{Object.keys(saved).length}</span></div>
+        {loadingProjects ? <div className="empty-projects"><p>Cargando proyectos…</p></div> : Object.values(saved).length ? <div className="project-list">{Object.values(saved).map((item) => <article className="project-card" key={item.id}>
           <div><h3>{item.name}</h3></div>
-          <div className="project-card-actions"><button className="open-project" onClick={() => openProject(item)}>Abrir</button><button onClick={() => renameProject(item.id)}>Renombrar</button><button onClick={() => exportJson(item)}>JSON</button><button className="delete-project" onClick={() => deleteProject(item.id)}>Eliminar</button></div>
+          <div className="project-card-actions"><button className="open-project" onClick={() => openProject(item)}>Abrir</button><button onClick={() => void renameProject(item.id)}>Renombrar</button><button onClick={() => exportJson(item)}>JSON</button><button className="delete-project" onClick={() => void deleteProject(item.id)}>Eliminar</button></div>
         </article>)}</div> : <div className="empty-projects"><span>▦</span><p>No hay proyectos guardados todavía.</p><small>Al guardar un mueble, aparecerá en esta lista.</small></div>}
       </section>
     </section>
@@ -307,11 +357,12 @@ export default function FurnitureEditor() {
       </div>
       <div className="editor-header-main">
         <p>Diseño actual</p>
-        <div className="project-title-row"><h1>{design.name}</h1><button className="header-save" onClick={save} title="Guardar proyecto" aria-label="Guardar proyecto"><img src={disk} alt="Guardar proyecto" /></button></div>
+        <div className="project-title-row"><h1>{design.name}</h1><button className="header-save" onClick={() => void save()} disabled={saving} title={saving ? 'Guardando proyecto' : 'Guardar proyecto'} aria-label="Guardar proyecto"><img src={disk} alt="Guardar proyecto" /></button></div>
       </div>
       <div className="header-controls"><span>{cm(design.width)} ancho × {cm(design.height)} alto</span></div>
     </header>}
 
+    {storageMessage && <p className="import-error" role="status">{storageMessage}</p>}
     <div className="editor-shell">
       <aside className={`toolbar ${collapsed ? 'collapsed' : ''}`}>
         <button className="icon-button collapse" onClick={() => setCollapsed(!collapsed)} aria-label="Contraer panel">{collapsed ? '›' : '‹'}</button>
