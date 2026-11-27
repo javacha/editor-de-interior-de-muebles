@@ -1,4 +1,4 @@
-import { del, list, put } from '@vercel/blob';
+import { createBlobStore } from './blobStore';
 
 export type Orientation = 'vertical' | 'horizontal';
 export type DesignNode =
@@ -14,7 +14,12 @@ export type Design = {
   root: DesignNode;
 };
 
-const PREFIX = 'furniture-designs/';
+const designStore = createBlobStore({
+  token: (globalThis as typeof globalThis & {
+    process?: { env?: Record<string, string | undefined> };
+  }).process?.env?.BLOB_READ_WRITE_TOKEN,
+  namespace: 'furniture-designs',
+});
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function isNode(value: unknown, depth = 0): value is DesignNode {
@@ -46,22 +51,23 @@ export function isDesign(value: unknown): value is Design {
 }
 
 export async function listDesigns(): Promise<Design[]> {
-  const blobs = [];
-  let cursor: string | undefined;
-
-  do {
-    const page = await list({ prefix: PREFIX, cursor });
-    blobs.push(...page.blobs);
-    cursor = page.hasMore ? page.cursor : undefined;
-  } while (cursor);
+  const blobs = await designStore.list();
 
   const designs = await Promise.all(blobs.map(async (blob) => {
     try {
       const response = await fetch(blob.url);
-      if (!response.ok) return null;
+      if (!response.ok) {
+        console.warn(`No se pudo descargar el Blob ${blob.pathname}: HTTP ${response.status}`);
+        return null;
+      }
       const value: unknown = await response.json();
-      return isDesign(value) ? value : null;
-    } catch {
+      if (!isDesign(value)) {
+        console.warn(`Se omitió el Blob ${blob.pathname}: no tiene un formato de diseño válido.`);
+        return null;
+      }
+      return value;
+    } catch (error) {
+      console.warn(`No se pudo leer el Blob ${blob.pathname}:`, error);
       return null;
     }
   }));
@@ -72,14 +78,9 @@ export async function listDesigns(): Promise<Design[]> {
 }
 
 export async function saveDesign(design: Design): Promise<void> {
-  await put(`${PREFIX}${design.id}.json`, JSON.stringify(design), {
-    access: 'public',
-    addRandomSuffix: false,
-    allowOverwrite: true,
-    contentType: 'application/json',
-  });
+  await designStore.putJson(`${design.id}.json`, design);
 }
 
 export async function deleteDesign(id: string): Promise<void> {
-  await del(`${PREFIX}${id}.json`);
+  await designStore.delete(`${id}.json`);
 }
